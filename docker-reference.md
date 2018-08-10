@@ -26,8 +26,39 @@ RUN echo $VERSION > image_version
 
 Refer [Dockerfile reference](https://docs.docker.com/engine/reference/builder/#from)
 
+### Generate a timestamp before cloning a git repo
 
-### Command Reference
+When you build docker, docker will cache each step. If you change the dockerfile and build again, docker will not re-execute a step if it has already been run before. We can add and increment a timestamp to a command
+to ensure that we re-execute a git clone command each time we rebuild a dockerfile.
+
+You can generate the current date timestamp in bash using the command:
+```
+date -u +'%Y-%m-%d-%H:%M:%S'
+```
+
+You can use a build script to pass the current build time to a Dockerfile
+using a build `ARG`
+
+```
+docker build --no-cache=true --build-arg BUILD_DATE=$(date -u +'%Y-%m-%d-%H:%M:%S') -t alpine:test .
+```
+
+```
+FROM alpine:latest
+LABEL maintainer="name@domain.com"
+
+ARG BUILD_DATE
+
+LABEL org.label-schema.build-date=$BUILD_DATE
+
+RUN echo $BUILD_DATE \
+    && mkdir -p /project/software/infrastructure/docker \
+    && cd /project/software/infrastructure/docker \
+    && git clone git://github.com/edowson/docker-doc doc
+```
+
+
+## Command Reference
 
 This section provides a list of useful docker commands for managing
 docker containers and images.
@@ -172,6 +203,10 @@ btrfs subvolume delete btrfs/subvolumes/*
 05. [Understanding Volumes in Docker - Container Solutions Blog](https://container-solutions.com/understanding-volumes-docker/)
 
 06. [Docker images and files chown](https://blog.mornati.net/docker-images-and-chown/)
+
+07. [Our docker & screen development environment - GrafanaLabs](https://grafana.com/blog/2015/05/05/our-docker--screen-development-environment/)
+
+08. [Let’s make your Docker Image better than 90% of existing ones - chamilad ](https://medium.com/@chamilad/lets-make-your-docker-image-better-than-90-of-existing-ones-8b1e5de950d)
 
 ### Repositories
 
