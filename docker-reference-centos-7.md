@@ -1,4 +1,4 @@
-# Docker Reference
+# Docker Reference - CentOS 7
 
 ## Writing Dockerfiles
 
@@ -57,6 +57,101 @@ RUN echo $BUILD_DATE \
     && git clone git://github.com/edowson/docker-doc doc
 ```
 
+### Enabling PulseAudio
+
+Refer the following resources for getting pulseaudio working with docker container:
+- [docker-chrome-pulseaudio ](https://github.com/jlund/docker-chrome-pulseaudio)
+- [docker-pulseaudio-example - TheBiggerGuy - GitHub](https://github.com/TheBiggerGuy/docker-pulseaudio-example)
+
+
+Install pulseaudio preferences:
+```
+sudo yum install paprefs
+```
+
+Launch PulseAudio Preferences, go to the "Network Server" tab, and check the "Enable network access to local sound devices" checkbox.
+
+![PulseAudio Preferences](./image/pulseaudio-preferences-centos-7.png)
+
+
+You can test if pulseaudio is working by typing in the following command:
+```
+pacat /dev/urandom
+```
+
+
+```
+stat /run/user/1001/pulse/native
+  File: ‘/run/user/1001/pulse/native’
+  Size: 0         	Blocks: 0          IO Block: 4096   socket
+Device: 2dh/45d	Inode: 73128       Links: 1
+Access: (0777/srwxrwxrwx)  Uid: ( 1001/   developer)   Gid: ( 1001/   developer)
+Context: unconfined_u:object_r:user_tmp_t:s0
+Access: 2018-08-15 21:49:22.472099247 +0400
+Modify: 2018-08-15 21:49:22.463099421 +0400
+Change: 2018-08-15 21:49:22.463099421 +0400
+```
+
+If the pulseaudio daemon is refusing a connection, type the following command
+in a separate terminal sessions before starting a docker container:
+```
+pulseaudio -k && pulseaudio -vvvv
+```
+
+After launching the container, you should get a message which indicates the
+source of a connection  failure:
+```
+D: [pulseaudio] module-udev-detect.c: /dev/snd/controlC1 is accessible: yes
+D: [pulseaudio] module-udev-detect.c: Resuming all sinks and sources of card alsa_card.pci-0000_01_00.1.
+D: [pulseaudio] module-udev-detect.c: /dev/snd/controlC0 is accessible: yes
+D: [pulseaudio] module-udev-detect.c: Resuming all sinks and sources of card alsa_card.pci-0000_00_1f.3.
+I: [pulseaudio] socket-server.c: TCP connection accepted by tcpwrap.
+I: [pulseaudio] client.c: Created 3 "Native client (TCP/IP client from 172.17.0.2:47612)"
+D: [pulseaudio] protocol-native.c: Protocol version: remote 30, local 32
+W: [pulseaudio] protocol-native.c: Denied access to client with invalid authentication data.
+I: [pulseaudio] client.c: Freed 3 "Native client (TCP/IP client from 172.17.0.2:47612)"
+I: [pulseaudio] protocol-native.c: Connection died.
+```
+
+Edit file `/etc/pulse/system.pa`
+```
+### Load several protocols
+.ifexists module-esound-protocol-unix.so
+#load-module module-esound-protocol-unix
+.endif
+load-module module-native-protocol-unix
+```
+
+Edit file `/etc/pulse/default.pa`, comment out the following:
+```
+### Automatically connect sink and source if JACK server is present
+#.ifexists module-jackdbus-detect.so
+#.nofail
+#load-module module-jackdbus-detect channels=2
+#.fail
+#.endif
+```
+
+and un-comment the following:
+```
+### Network access (may be configured with paprefs, so leave this commented
+### here if you plan to use paprefs)
+load-module module-native-protocol-tcp
+```
+
+and modify the followng lines:
+```
+### Load several protocols
+.ifexists module-esound-protocol-unix.so
+#load-module module-esound-protocol-unix
+.endif
+load-module module-native-protocol-unix
+```
+
+Install pulseaudio pavucontrol pavumeter:
+```
+sudo yum install pavucontrol pavumeter
+```
 
 ## Command Reference
 
@@ -185,9 +280,45 @@ $ docker volume rm $(docker volume ls -q)
 
 ```
 sudo -s
-cd /var/lib/btrfs
+cd /var/lib/docker
+btrfs subvolume delete btrfs/subvolumes/*
+
+# delete subvolumes for a specific user
+cd /var/lib/docker/1026.982
 btrfs subvolume delete btrfs/subvolumes/*
 ```
+
+### Linux Command Reference
+
+List users with uids:
+```bash
+getent passwd | cut -d: -f1,3
+```
+
+List groups with gids:
+```bash
+getent group
+```
+
+Create a group with gid:
+
+```bash
+sudo groupadd -g 101000 docker-developer
+sudo usermod -aG docker-developer developer
+```
+
+Delete a group:
+```bash
+sudo groupdel docker-developer
+```
+
+
+### Issues
+
+#### PulseAudio in Docker
+
+01. [pa_context_connect() failed when X11 socket and DISPLAY variable are passed in docker run](https://github.com/TheBiggerGuy/docker-pulseaudio-example/issues/1)
+
 
 
 ### Tutorials
@@ -221,6 +352,17 @@ btrfs subvolume delete btrfs/subvolumes/*
 05. https://github.com/solita/docker-systemd-ssh
 
 06. https://github.com/solita/docker-systemd/blob/bionic/Dockerfile
+
+#### PulseAudio Examples
+
+07. [docker-pulseaudio-example - TheBiggerGuy - GitHub](https://github.com/TheBiggerGuy/docker-pulseaudio-example)
+
+An example of a PulseAudio app working within a Docker container using the hosts
+sound system.
+
+02. [docker-mopidy - wernight - GitHub](https://github.com/wernight/docker-mopidy)
+
+Mopidy is a music server with support for MPD clients and HTTP clients.
 
 
 ### Related Topics
